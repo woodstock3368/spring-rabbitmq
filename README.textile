@@ -12,7 +12,7 @@ h2. Descriptions
 
 |_. Component |_. Description |
 | RabbitTemplate | Send objects to injected exchange |
-| AsyncRabbitTemplate | Same as RabbitTempate, but uses internal queue and worker so calls to the send method are non-blocking |
+| AsyncRabbitTemplate | Same as RabbitTempate, but uses thread pool so calls to the send method are non-blocking |
 | RabbitMessageListenerAdapter | Listens for incoming object messages and delegate the handling to delegate object trying to find a handleMessage method taking the specific object as a parameter |
 | RabbitInvokerServerExporter | Exports spring service interface to a direct queue or and exchange, handling springs remote invocation calls |
 | RabbitInvokerProxyFactoryBean | Proxy bean to invoke a remote exported service by intercepting method calls on proxied interface and sending a remote invocation over rabbitmq |
