@@ -1,9 +1,9 @@
 package com.rabbitmq.spring.channel;
 
-import com.rabbitmq.spring.connection.RabbitConnectionFactory;
 import com.rabbitmq.client.*;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import com.rabbitmq.spring.connection.RabbitConnectionFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 
 import java.io.IOException;
@@ -17,7 +17,7 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
     public static final int DEFAULT_CLOSE_CODE = AMQP.REPLY_SUCCESS;
     public static final String DEFAULT_CLOSE_MESSAGE = "Goodbye";
 
-    private static final Log log = LogFactory.getLog(RabbitChannelFactory.class);
+    private static final Logger log = LoggerFactory.getLogger(RabbitChannelFactory.class);
 
     private RabbitConnectionFactory connectionFactory;
     private int closeCode = DEFAULT_CLOSE_CODE;
@@ -85,7 +85,7 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
         }
 
         channelReferenceSet.clear();
-        
+
     }
 
     @Override
@@ -98,7 +98,7 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
 
         } else if (cause.isHardError()) {
             log.error(String.format("Hard error shutdown completed for reference [%s] - reason [%s]"
-                        , cause.getReference(), cause.getReason()));
+                    , cause.getReference(), cause.getReason()));
         }
         if (log.isInfoEnabled()) {
             log.info("Shutdown completed");

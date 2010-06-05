@@ -1,11 +1,11 @@
 package com.rabbitmq.spring.listener;
 
+import com.rabbitmq.client.*;
 import com.rabbitmq.spring.ExchangeType;
 import com.rabbitmq.spring.channel.RabbitChannelFactory;
-import com.rabbitmq.client.*;
 import org.apache.commons.lang.SerializationUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.util.MethodInvoker;
@@ -22,7 +22,7 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
     public static final String DEFAULT_ROUTING_KEY = "#";
     public static final ExchangeType DEFAULT_EXCHANGE_TYPE = ExchangeType.DIRECT;
 
-    private final Log log = LogFactory.getLog(RabbitMessageListenerAdapter.class);
+    private final Logger log = LoggerFactory.getLogger(RabbitMessageListenerAdapter.class);
 
     private Object delegate;
 
@@ -58,7 +58,7 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
                 channel.exchangeDeclare(exchange, exchangeType.toString());
                 channel.queueBind(internalQueueName, exchange, routingKey);
 
-                for (int i=1; i<=poolsize; i++) {
+                for (int i = 1; i <= poolsize; i++) {
                     channel.basicConsume(internalQueueName, this);
                     log.info(String.format("Started consumer %d on exchange [%s(%s)] - queue [%s] - routingKey [%s]"
                             , i, exchange, exchangeType, queueName, routingKey));
@@ -135,15 +135,15 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
             } else {
                 log.trace("No result object given - no result to handle");
             }
-        } finally{
+        } finally {
             channel.basicAck(envelope.getDeliveryTag(), false);
         }
 
     }
 
     private void handleResult(Serializable result, Envelope envelope, AMQP.BasicProperties properties) throws IOException {
-        if (properties.replyTo != null) {
-            channel.basicPublish(envelope.getExchange(), properties.replyTo, null, SerializationUtils.serialize(result));
+        if (properties.getReplyTo() != null) {
+            channel.basicPublish(envelope.getExchange(), properties.getReplyTo(), null, SerializationUtils.serialize(result));
         }
     }
 

@@ -1,8 +1,8 @@
 package com.rabbitmq.spring.connection;
 
 import com.rabbitmq.client.*;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.util.ObjectUtils;
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 public class RabbitConnectionFactory implements DisposableBean {
 
-    private static final Log log = LogFactory.getLog(RabbitConnectionFactory.class);
+    private static final Logger log = LoggerFactory.getLogger(RabbitConnectionFactory.class);
 
     // spring injected
     private ConnectionFactory connectionFactory;
@@ -31,7 +31,7 @@ public class RabbitConnectionFactory implements DisposableBean {
 
         while (connection == null || !connection.isOpen()) {
             ConnectionParameters connectionParameters = connectionFactory.getParameters();
-            
+
             if (log.isInfoEnabled()) {
                 log.info(String.format("Establishing connection to one of [%s] using virtualhost [%s]"
                         , ObjectUtils.nullSafeToString(hosts), connectionParameters.getVirtualHost()));

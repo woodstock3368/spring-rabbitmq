@@ -1,11 +1,11 @@
 package com.rabbitmq.spring.template;
 
+import com.rabbitmq.client.*;
 import com.rabbitmq.spring.ExchangeType;
 import com.rabbitmq.spring.channel.RabbitChannelFactory;
-import com.rabbitmq.client.*;
 import org.apache.commons.lang.SerializationUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
 
@@ -21,7 +21,7 @@ public class RabbitTemplate implements InitializingBean, ShutdownListener, Retur
     public static final ExchangeType DEFAULT_EXCHANGE_TYPE = ExchangeType.DIRECT;
     public static final String DEFAULT_ROUTING_KEY = "#";
 
-    private final Log log = LogFactory.getLog(RabbitTemplate.class);
+    private final Logger log = LoggerFactory.getLogger(RabbitTemplate.class);
 
     private RabbitChannelFactory channelFactory;
     private String exchange;
@@ -60,7 +60,7 @@ public class RabbitTemplate implements InitializingBean, ShutdownListener, Retur
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        
+
         exchangeType.validateRoutingKey(routingKey);
 
         connectChannel();

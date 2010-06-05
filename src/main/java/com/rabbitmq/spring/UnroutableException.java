@@ -1,7 +1,7 @@
 package com.rabbitmq.spring;
 
 public class UnroutableException extends RuntimeException {
-    
+
     public UnroutableException() {
     }
 

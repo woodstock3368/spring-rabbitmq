@@ -1,12 +1,12 @@
 package com.rabbitmq.spring.remoting;
 
+import com.rabbitmq.client.*;
 import com.rabbitmq.spring.ExchangeType;
 import com.rabbitmq.spring.InvalidRoutingKeyException;
 import com.rabbitmq.spring.channel.RabbitChannelFactory;
-import com.rabbitmq.client.*;
 import org.apache.commons.lang.SerializationUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
@@ -15,13 +15,14 @@ import org.springframework.remoting.support.RemoteInvocationBasedExporter;
 import org.springframework.remoting.support.RemoteInvocationResult;
 
 import java.io.IOException;
-import static java.lang.String.format;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.String.format;
+
 public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter implements InitializingBean, DisposableBean, ShutdownListener {
 
-    private final Log log = LogFactory.getLog(RabbitInvokerServiceExporter.class);
+    private final Logger log = LoggerFactory.getLogger(RabbitInvokerServiceExporter.class);
 
     private RabbitChannelFactory channelFactory;
     private String exchange;
@@ -36,8 +37,8 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
     public void afterPropertiesSet() {
 
         if (exchangeType.equals(ExchangeType.FANOUT)) {
-             throw new InvalidRoutingKeyException(
-                        String.format("Exchange type %s not allowed for service exporter", exchangeType));
+            throw new InvalidRoutingKeyException(
+                    String.format("Exchange type %s not allowed for service exporter", exchangeType));
         }
 
         exchangeType.validateRoutingKey(routingKey);
@@ -93,7 +94,7 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
 
     private RpcServer createRpcServer(Channel channel) throws IOException {
         return new RpcServer(channel, queueName) {
-            
+
             @Override
             public byte[] handleCall(byte[] requestBody, AMQP.BasicProperties replyProperties) {
 

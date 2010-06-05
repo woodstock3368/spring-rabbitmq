@@ -1,14 +1,14 @@
 package com.rabbitmq.spring.remoting;
 
+import com.rabbitmq.client.*;
 import com.rabbitmq.spring.ExchangeType;
 import com.rabbitmq.spring.UnroutableException;
 import com.rabbitmq.spring.channel.RabbitChannelFactory;
-import com.rabbitmq.client.*;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.apache.commons.lang.SerializationUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
@@ -20,15 +20,16 @@ import org.springframework.remoting.support.RemoteInvocationFactory;
 import org.springframework.remoting.support.RemoteInvocationResult;
 
 import java.io.IOException;
-import static java.lang.String.format;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static java.lang.String.format;
+
 public class RabbitInvokerClientInterceptor implements MethodInterceptor, InitializingBean, ShutdownListener, DisposableBean {
 
-    private final Log log = LogFactory.getLog(RabbitInvokerClientInterceptor.class);
+    private final Logger log = LoggerFactory.getLogger(RabbitInvokerClientInterceptor.class);
 
     private static final int DEFAULT_TIMEOUT_MS = 30000;
     private static final int DEFAULT_POOL_SIZE = 5;

@@ -85,7 +85,7 @@ class RabbitRpcClient {
                                        byte[] body)
                     throws IOException {
                 synchronized (continuationMap) {
-                    String replyId = properties.correlationId;
+                    String replyId = properties.getCorrelationId();
                     BlockingCell<Object> blocker = continuationMap.get(replyId);
                     continuationMap.remove(replyId);
                     blocker.set(body);
@@ -111,8 +111,8 @@ class RabbitRpcClient {
             correlationId++;
             String replyId = "" + correlationId;
             if (localProps != null) {
-                localProps.correlationId = replyId;
-                localProps.replyTo = replyQueue;
+                localProps.setCorrelationId(replyId);
+                localProps.setReplyTo(replyQueue);
             } else {
                 localProps = new AMQP.BasicProperties(null, null, null, null,
                         null, replyId,
