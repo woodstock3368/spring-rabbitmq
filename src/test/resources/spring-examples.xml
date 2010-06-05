@@ -44,7 +44,7 @@
     <bean id="quotingParamtersTopicAdapter" class="com.rabbitmq.spring.listener.RabbitMessageListenerAdapter">
         <property name="channelFactory" ref="rabbitChannelFactory"/>
         <property name="delegate" ref="exampleDelegate"/>
-        <property name="exchange" value="your_echange"/>
+        <property name="exchange" value="your_exchange"/>
         <!--optional-->
         <property name="exchangeType" value="TOPIC"/>
         <property name="routingKey" value="routing.#"/>
@@ -62,7 +62,7 @@
         <property name="channelFactory" ref="rabbitChannelFactory"/>
         <property name="serviceInterface" value="com.rabbitmq.spring.example.ExampleService"/>
         <property name="service" ref="exampleServiceImpl"/>
-        <property name="exchange" value="service_exhange"/>
+        <property name="exchange" value="service_exchange"/>
         <property name="exchangeType" value="TOPIC"/>
         <property name="routingKey" value="routing.example.service"/>
         <property name="queueName" value="incoming_queue_name"/>
@@ -73,7 +73,7 @@
     <bean id="exampleService" class="com.rabbitmq.spring.remoting.RabbitInvokerProxyFactoryBean">
         <property name="channelFactory" ref="rabbitChannelFactory"/>
         <property name="serviceInterface" value="com.rabbitmq.spring.example.ExampleService"/>
-        <property name="exchange" value="service_exhange"/>
+        <property name="exchange" value="service_exchange"/>
         <property name="exchangeType" value="TOPIC"/>
         <property name="routingKey" value="routing.example.service"/>
         <!--optional-->
