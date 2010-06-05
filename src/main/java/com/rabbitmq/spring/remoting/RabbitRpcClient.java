@@ -32,8 +32,8 @@ class RabbitRpcClient {
     }
 
     @SuppressWarnings({"ConstructorWithTooManyParameters"})
-    public RabbitRpcClient(Channel channel, String exchange, String routingKey, int timeOutMs, boolean mandatory
-            , boolean immediate) throws IOException {
+    public RabbitRpcClient(Channel channel, String exchange, String routingKey, int timeOutMs, boolean mandatory,
+                           boolean immediate) throws IOException {
         this.channel = channel;
         this.exchange = exchange;
         this.routingKey = routingKey;
@@ -96,14 +96,12 @@ class RabbitRpcClient {
         return consumer;
     }
 
-    void publish(AMQP.BasicProperties props, byte[] message)
-            throws IOException {
+    void publish(AMQP.BasicProperties props, byte[] message) throws IOException {
         channel.basicPublish(exchange, routingKey, mandatory, immediate, props, message);
 
     }
 
-    public byte[] primitiveCall(AMQP.BasicProperties props, byte[] message)
-            throws IOException, ShutdownSignalException, TimeoutException {
+    public byte[] primitiveCall(AMQP.BasicProperties props, byte[] message) throws IOException, ShutdownSignalException, TimeoutException {
         AMQP.BasicProperties localProps = props;
         checkConsumer();
         BlockingCell<Object> k = new BlockingCell<Object>();
@@ -137,19 +135,16 @@ class RabbitRpcClient {
         }
     }
 
-    public byte[] primitiveCall(byte[] message)
-            throws IOException, ShutdownSignalException, TimeoutException {
+    public byte[] primitiveCall(byte[] message) throws IOException, ShutdownSignalException, TimeoutException {
         return primitiveCall(null, message);
     }
 
-    public String stringCall(String message)
-            throws IOException, ShutdownSignalException, TimeoutException {
+    public String stringCall(String message) throws IOException, ShutdownSignalException, TimeoutException {
         return new String(primitiveCall(message.getBytes()));
     }
 
     @SuppressWarnings({"IOResourceOpenedButNotSafelyClosed"})
-    public Map<String, Object> mapCall(Map<String, Object> message)
-            throws IOException, ShutdownSignalException, TimeoutException {
+    public Map<String, Object> mapCall(Map<String, Object> message) throws IOException, ShutdownSignalException, TimeoutException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         MethodArgumentWriter writer = new MethodArgumentWriter(new DataOutputStream(buffer));
         writer.writeTable(message);

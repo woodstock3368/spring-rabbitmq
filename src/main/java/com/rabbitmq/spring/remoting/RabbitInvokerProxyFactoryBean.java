@@ -5,8 +5,7 @@ import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.util.ClassUtils;
 
-public class RabbitInvokerProxyFactoryBean extends RabbitInvokerClientInterceptor
-        implements FactoryBean, BeanClassLoaderAware {
+public class RabbitInvokerProxyFactoryBean extends RabbitInvokerClientInterceptor implements FactoryBean, BeanClassLoaderAware {
 
     private Class serviceInterface;
 

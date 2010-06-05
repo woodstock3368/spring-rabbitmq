@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 public class RabbitConnectionFactory implements DisposableBean {
 
-    private static final Logger log = LoggerFactory.getLogger(RabbitConnectionFactory.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitConnectionFactory.class);
 
     // spring injected
     private ConnectionFactory connectionFactory;
@@ -32,10 +32,8 @@ public class RabbitConnectionFactory implements DisposableBean {
         while (connection == null || !connection.isOpen()) {
             ConnectionParameters connectionParameters = connectionFactory.getParameters();
 
-            if (log.isInfoEnabled()) {
-                log.info(String.format("Establishing connection to one of [%s] using virtualhost [%s]"
-                        , ObjectUtils.nullSafeToString(hosts), connectionParameters.getVirtualHost()));
-            }
+            LOGGER.info("Establishing connection to one of [{}] using virtualhost [{}]",
+                    ObjectUtils.nullSafeToString(hosts), connectionParameters.getVirtualHost());
 
             try {
                 connection = connectionFactory.newConnection(knownHosts);
@@ -45,21 +43,17 @@ public class RabbitConnectionFactory implements DisposableBean {
                 hosts.addAll(Arrays.asList(connection.getKnownHosts()));
                 knownHosts = hosts.toArray(new Address[hosts.size()]);
 
-                if (log.isDebugEnabled()) {
-                    log.debug(String.format("New known hosts list is [%s]", ObjectUtils.nullSafeToString(knownHosts)));
-                }
+                LOGGER.debug("New known hosts list is [{}]", ObjectUtils.nullSafeToString(knownHosts));
 
                 addShutdownListeners();
 
-                if (log.isInfoEnabled()) {
-                    log.info(String.format("Connected to [%s:%d]", connection.getHost(), connection.getPort()));
-                }
+                LOGGER.info("Connected to [{}:{}]", connection.getHost(), connection.getPort());
             } catch (Exception e) {
-                log.error("Error connecting, trying again in 5 seconds...", e);
+                LOGGER.error("Error connecting, trying again in 5 seconds...", e);
                 try {
                     TimeUnit.SECONDS.sleep(5);
                 } catch (InterruptedException e1) {
-                    log.warn("Interrupted while waiting");
+                    LOGGER.warn("Interrupted while waiting");
                 }
             }
 

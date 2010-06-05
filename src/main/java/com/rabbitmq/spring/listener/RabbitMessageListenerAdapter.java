@@ -17,12 +17,12 @@ import java.lang.reflect.InvocationTargetException;
 
 public class RabbitMessageListenerAdapter implements Consumer, InitializingBean {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitMessageListenerAdapter.class);
+
     public static final String DEFAULT_LISTENER_METHOD = "handleMessage";
     public static final int DEFAULT_POOL_SIZE = 1;
     public static final String DEFAULT_ROUTING_KEY = "#";
     public static final ExchangeType DEFAULT_EXCHANGE_TYPE = ExchangeType.DIRECT;
-
-    private final Logger log = LoggerFactory.getLogger(RabbitMessageListenerAdapter.class);
 
     private Object delegate;
 
@@ -58,13 +58,13 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
                 channel.exchangeDeclare(exchange, exchangeType.toString());
                 channel.queueBind(internalQueueName, exchange, routingKey);
 
-                for (int i = 1; i <= poolsize; i++) {
+                for (int index = 1; index <= poolsize; index++) {
                     channel.basicConsume(internalQueueName, this);
-                    log.info(String.format("Started consumer %d on exchange [%s(%s)] - queue [%s] - routingKey [%s]"
-                            , i, exchange, exchangeType, queueName, routingKey));
+                    LOGGER.info("Started consumer {} on exchange [{}({})] - queue [{}] - routingKey [{}]",
+                            new Object[]{index, exchange, exchangeType, queueName, routingKey});
                 }
             } catch (IOException e) {
-                log.warn("Unable start consumer", e);
+                LOGGER.warn("Unable start consumer", e);
             }
         }
     }
@@ -89,31 +89,23 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
 
     @Override
     public void handleConsumeOk(String consumerTag) {
-        if (log.isTraceEnabled()) {
-            log.trace(String.format("handleConsumeOk [%s]", consumerTag));
-        }
+        LOGGER.trace("handleConsumeOk [{}]", consumerTag);
     }
 
     @Override
     public void handleCancelOk(String consumerTag) {
-        if (log.isTraceEnabled()) {
-            log.trace(String.format("handleCancelOk [%s]", consumerTag));
-        }
+        LOGGER.trace("handleCancelOk [{}]", consumerTag);
     }
 
     @Override
     public void handleShutdownSignal(String consumerTag, ShutdownSignalException cause) {
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Channel connection lost for reason [%s]", cause.getReason()));
-            log.info(String.format("Reference [%s]", cause.getReference()));
-        }
+        LOGGER.info("Channel connection lost for reason [{}]", cause.getReason());
+        LOGGER.info("Reference [{}]", cause.getReference());
 
         if (cause.isInitiatedByApplication()) {
-            if (log.isInfoEnabled()) {
-                log.info("Sutdown initiated by application");
-            }
+            LOGGER.info("Shutdown initiated by application");
         } else if (cause.isHardError()) {
-            log.error("Shutdown is a hard error, trying to restart consumer(s)...");
+            LOGGER.error("Shutdown is a hard error, trying to restart consumer(s)...");
             startConsumer();
         }
     }
@@ -121,9 +113,7 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
     @Override
     public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
 
-        if (log.isDebugEnabled()) {
-            log.debug(String.format("Handling message with tag [%s] on [%s]", consumerTag, envelope.getRoutingKey()));
-        }
+        LOGGER.debug("Handling message with tag [{}] on [{}]", consumerTag, envelope.getRoutingKey());
         try {
 
             Object message = SerializationUtils.deserialize(body);
@@ -133,7 +123,7 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
             if (result != null && result instanceof Serializable) {
                 handleResult((Serializable) result, envelope, properties);
             } else {
-                log.trace("No result object given - no result to handle");
+                LOGGER.trace("No result object given - no result to handle");
             }
         } finally {
             channel.basicAck(envelope.getDeliveryTag(), false);
@@ -159,11 +149,12 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
         catch (InvocationTargetException ex) {
             Throwable targetEx = ex.getTargetException();
             throw new ListenerExecutionFailedException(
-                    "Listener method '" + methodName + "' threw exception", targetEx);
+                    String.format("Listener method '%s' threw exception", methodName), targetEx);
         }
         catch (Throwable ex) {
-            throw new ListenerExecutionFailedException("Failed to invoke target method '" + methodName +
-                    "' with arguments " + ObjectUtils.nullSafeToString(arguments), ex);
+            throw new ListenerExecutionFailedException(
+                    String.format("Failed to invoke target method '%s' with arguments %s", methodName, ObjectUtils.nullSafeToString(arguments)), ex
+            );
         }
     }
 

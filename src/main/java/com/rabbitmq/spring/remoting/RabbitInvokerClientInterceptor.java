@@ -2,7 +2,7 @@ package com.rabbitmq.spring.remoting;
 
 import com.rabbitmq.client.*;
 import com.rabbitmq.spring.ExchangeType;
-import com.rabbitmq.spring.UnroutableException;
+import com.rabbitmq.spring.UnRoutableException;
 import com.rabbitmq.spring.channel.RabbitChannelFactory;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
@@ -25,11 +25,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static java.lang.String.format;
-
 public class RabbitInvokerClientInterceptor implements MethodInterceptor, InitializingBean, ShutdownListener, DisposableBean {
 
-    private final Logger log = LoggerFactory.getLogger(RabbitInvokerClientInterceptor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitInvokerClientInterceptor.class);
 
     private static final int DEFAULT_TIMEOUT_MS = 30000;
     private static final int DEFAULT_POOL_SIZE = 5;
@@ -78,17 +76,17 @@ public class RabbitInvokerClientInterceptor implements MethodInterceptor, Initia
                         Throwable resultException;
                         switch (replyCode) {
                             case AMQP.NO_CONSUMERS:
-                                resultException = new UnroutableException(String.format(
+                                resultException = new UnRoutableException(String.format(
                                         "No consumers for message [%s] - [%s] - [%s]"
                                         , SerializationUtils.deserialize(body), exchange, routingKey));
                                 break;
                             case AMQP.NO_ROUTE:
-                                resultException = new UnroutableException(String.format(
+                                resultException = new UnRoutableException(String.format(
                                         "Unroutable message [%s] - [%s] - [%s]"
                                         , SerializationUtils.deserialize(body), exchange, routingKey));
                                 break;
                             default:
-                                resultException = new UnroutableException(String.format(
+                                resultException = new UnRoutableException(String.format(
                                         "Message returned [%s] - [%s] - [%s] - [%d] - [%s]"
                                         , SerializationUtils.deserialize(body), exchange, routingKey, replyCode, replyText));
 
@@ -98,13 +96,13 @@ public class RabbitInvokerClientInterceptor implements MethodInterceptor, Initia
                                 , SerializationUtils.serialize(remoteInvocationResult));
                     }
                 });
-                log.info(String.format("Started rpc client on exchange [%s(%s)] - routingKey [%s]"
-                        , exchange, exchangeType, routingKey));
+                LOGGER.info("Started rpc client on exchange [{}({})] - routingKey [{}]",
+                        new Object[]{exchange, exchangeType, routingKey});
                 rpcClients.add(rpcClient);
 
             }
         } catch (IOException e) {
-            log.warn("Unable to create rpc client", e);
+            LOGGER.warn("Unable to create rpc client", e);
         }
     }
 
@@ -193,40 +191,31 @@ public class RabbitInvokerClientInterceptor implements MethodInterceptor, Initia
 
     @Override
     public void shutdownCompleted(ShutdownSignalException cause) {
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Channel connection lost for reason [%s]", cause.getReason()));
-            log.info(String.format("Reference [%s]", cause.getReference()));
-        }
+        LOGGER.info("Channel connection lost for reason [{}]", cause.getReason());
+        LOGGER.info("Reference [{}]", cause.getReference());
 
         if (cause.isInitiatedByApplication()) {
-            if (log.isInfoEnabled()) {
-                log.info("Sutdown initiated by application");
-            }
+            LOGGER.info("Shutdown initiated by application");
         } else if (cause.isHardError()) {
-            log.error("Shutdown is a hard error, trying to restart the RPC clients...");
+            LOGGER.error("Shutdown is a hard error, trying to restart the RPC clients...");
             clearRpcClients();
             createRpcClients();
         }
     }
 
     private void clearRpcClients() {
-        if (log.isInfoEnabled()) {
-            log.info(format("Closing %d rpc clients", rpcClients.size()));
-        }
+        LOGGER.info("Closing {} rpc clients", rpcClients.size());
 
         for (RabbitRpcClient rpcClient : rpcClients) {
             try {
                 rpcClient.close();
             } catch (Exception e) {
-                log.warn("Error closing rpc client", e);
+                LOGGER.warn("Error closing rpc client", e);
             }
         }
         rpcClients.clear();
 
-        if (log.isInfoEnabled()) {
-            log.info("Rpc clients closed");
-        }
-
+        LOGGER.info("Rpc clients closed");
     }
 
     @Override

@@ -18,11 +18,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static java.lang.String.format;
-
 public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter implements InitializingBean, DisposableBean, ShutdownListener {
 
-    private final Logger log = LoggerFactory.getLogger(RabbitInvokerServiceExporter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitInvokerServiceExporter.class);
 
     private RabbitChannelFactory channelFactory;
     private String exchange;
@@ -52,7 +50,7 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
 
     private void startRpcServer() {
         try {
-            log.info("Creating channel and rpc server");
+            LOGGER.info("Creating channel and rpc server");
             Channel tmpChannel = channelFactory.createChannel();
             tmpChannel.getConnection().addShutdownListener(this);
             tmpChannel.queueDeclare(queueName, false, false, false, true, null);
@@ -66,9 +64,8 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
                 try {
                     Channel channel = channelFactory.createChannel();
 
-                    log.info(String.format(
-                            "Starting rpc server %d on exchange [%s(%s)] - queue [%s] - routingKey [%s]"
-                            , i, exchange, exchangeType, queueName, routingKey));
+                    LOGGER.info("Starting rpc server {} on exchange [{}({})] - queue [{}] - routingKey [{}]",
+                            new Object[]{i, exchange, exchangeType, queueName, routingKey});
                     final RpcServer rpcServer = createRpcServer(channel);
                     rpcServerPool.add(rpcServer);
 
@@ -84,11 +81,11 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
                     };
                     new Thread(main).start();
                 } catch (IOException e) {
-                    log.warn("Unable to create rpc server", e);
+                    LOGGER.warn("Unable to create rpc server", e);
                 }
             }
         } catch (Exception e) {
-            log.error("Unexpected error trying to start rpc servers", e);
+            LOGGER.error("Unexpected error trying to start rpc servers", e);
         }
     }
 
@@ -125,38 +122,30 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
     }
 
     private void clearRpcServers() {
-        if (log.isInfoEnabled()) {
-            log.info(format("Closing %d rpc servers", rpcServerPool.size()));
-        }
+        LOGGER.info("Closing {} rpc servers", rpcServerPool.size());
 
         for (RpcServer rpcServer : rpcServerPool) {
             try {
                 rpcServer.terminateMainloop();
                 rpcServer.close();
             } catch (Exception e) {
-                log.warn("Error termination rpcserver loop", e);
+                LOGGER.warn("Error termination rpcserver loop", e);
             }
         }
         rpcServerPool.clear();
-        if (log.isInfoEnabled()) {
-            log.info("Rpc servers closed");
-        }
+        LOGGER.info("Rpc servers closed");
 
     }
 
     @Override
     public void shutdownCompleted(ShutdownSignalException cause) {
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Channel connection lost for reason [%s]", cause.getReason()));
-            log.info(String.format("Reference [%s]", cause.getReference()));
-        }
+        LOGGER.info("Channel connection lost for reason [{}]", cause.getReason());
+        LOGGER.info("Reference [{}]", cause.getReference());
 
         if (cause.isInitiatedByApplication()) {
-            if (log.isInfoEnabled()) {
-                log.info("Sutdown initiated by application");
-            }
+            LOGGER.info("Shutdown initiated by application");
         } else if (cause.isHardError()) {
-            log.error("Shutdown is a hard error, trying to restart the RPC server...");
+            LOGGER.error("Shutdown is a hard error, trying to restart the RPC server...");
             startRpcServer();
         }
     }

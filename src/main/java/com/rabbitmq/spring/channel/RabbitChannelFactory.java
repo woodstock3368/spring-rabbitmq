@@ -17,7 +17,7 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
     public static final int DEFAULT_CLOSE_CODE = AMQP.REPLY_SUCCESS;
     public static final String DEFAULT_CLOSE_MESSAGE = "Goodbye";
 
-    private static final Logger log = LoggerFactory.getLogger(RabbitChannelFactory.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitChannelFactory.class);
 
     private RabbitConnectionFactory connectionFactory;
     private int closeCode = DEFAULT_CLOSE_CODE;
@@ -39,19 +39,14 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
 
     public Channel createChannel() throws IOException {
 
-        if (log.isDebugEnabled()) {
-            log.debug("Creating channel");
-        }
+        LOGGER.debug("Creating channel");
 
         Connection connection = connectionFactory.getConnection();
         connection.addShutdownListener(this);
         Channel channel = connection.createChannel();
         channelReferenceSet.add(new WeakReference<Channel>(channel));
 
-        if (log.isInfoEnabled()) {
-
-            log.info(String.format("Created channel nr. %d", channel.getChannelNumber()));
-        }
+        LOGGER.debug("Created channel nr. {}", channel.getChannelNumber());
         return channel;
     }
 
@@ -61,9 +56,7 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
     }
 
     private void closeChannels() {
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Closing '%d' channels", channelReferenceSet.size()));
-        }
+        LOGGER.debug("Closing '{}' channels", channelReferenceSet.size());
 
         for (Reference<Channel> channelReference : channelReferenceSet) {
 
@@ -75,15 +68,13 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
                     }
                 }
             } catch (NullPointerException e) {
-                log.error("Error closing channel", e);
+                LOGGER.error("Error closing channel", e);
             } catch (IOException e) {
-                log.error("Error closing channel", e);
+                LOGGER.error("Error closing channel", e);
             }
         }
-        if (log.isInfoEnabled()) {
-            log.info("All channels closed");
-        }
 
+        LOGGER.debug("All channels closed");
         channelReferenceSet.clear();
 
     }
@@ -91,17 +82,14 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
     @Override
     public void shutdownCompleted(ShutdownSignalException cause) {
         if (cause.isInitiatedByApplication()) {
-            if (log.isInfoEnabled()) {
-                log.info(String.format("Shutdown by application completed for reference [%s] - reason [%s]"
-                        , cause.getReference(), cause.getReason()));
-            }
+            LOGGER.debug("Shutdown by application completed for reference [{}] - reason [{}]",
+                    cause.getReference(), cause.getReason());
 
         } else if (cause.isHardError()) {
-            log.error(String.format("Hard error shutdown completed for reference [%s] - reason [%s]"
-                    , cause.getReference(), cause.getReason()));
+            LOGGER.error("Hard error shutdown completed for reference [{}] - reason [{}]",
+                    cause.getReference(), cause.getReason());
         }
-        if (log.isInfoEnabled()) {
-            log.info("Shutdown completed");
-        }
+
+        LOGGER.debug("Shutdown completed");
     }
 }

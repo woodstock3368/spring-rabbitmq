@@ -11,7 +11,8 @@ import java.util.concurrent.TimeUnit;
 
 public class ASyncRabbitTemplate extends RabbitTemplate implements DisposableBean {
 
-    private final Logger log = LoggerFactory.getLogger(ASyncRabbitTemplate.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ASyncRabbitTemplate.class);
+
     private final BlockingQueue<RabbitMessage> queue = new LinkedBlockingQueue<RabbitMessage>();
 
     private volatile boolean running = true;
@@ -48,11 +49,9 @@ public class ASyncRabbitTemplate extends RabbitTemplate implements DisposableBea
                         sendMessage(message);
                     }
                 } catch (InterruptedException ie) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Interrupted while waiting for RabbitMessage in queue");
-                    }
+                    LOGGER.debug("Interrupted while waiting for RabbitMessage in queue");
                 } catch (Exception e) {
-                    log.error("Error sending message", e);
+                    LOGGER.error("Error sending message", e);
                 }
             }
         }

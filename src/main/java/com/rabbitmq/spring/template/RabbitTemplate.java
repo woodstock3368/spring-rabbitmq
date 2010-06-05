@@ -18,10 +18,10 @@ import java.io.Serializable;
  */
 public class RabbitTemplate implements InitializingBean, ShutdownListener, ReturnListener {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitTemplate.class);
+
     public static final ExchangeType DEFAULT_EXCHANGE_TYPE = ExchangeType.DIRECT;
     public static final String DEFAULT_ROUTING_KEY = "#";
-
-    private final Logger log = LoggerFactory.getLogger(RabbitTemplate.class);
 
     private RabbitChannelFactory channelFactory;
     private String exchange;
@@ -46,13 +46,11 @@ public class RabbitTemplate implements InitializingBean, ShutdownListener, Retur
     }
 
     public void send(Serializable object, String routingKey, boolean mandatory, boolean immediate) {
-        if (log.isTraceEnabled()) {
-            log.trace(String.format("Sending object [%s] with routingKey [%s] - mandatory [%s] - immediate [%s]"
-                    , object, routingKey, mandatory, immediate));
-        }
+        LOGGER.trace("Sending object [%s] with routingKey [{}] - mandatory [{}] - immediate [{}]",
+                new Object[]{object, routingKey, mandatory, immediate});
+
         try {
             channel.basicPublish(exchange, routingKey, mandatory, immediate, null, SerializationUtils.serialize(object));
-
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -60,9 +58,7 @@ public class RabbitTemplate implements InitializingBean, ShutdownListener, Retur
 
     @Override
     public void afterPropertiesSet() throws Exception {
-
         exchangeType.validateRoutingKey(routingKey);
-
         connectChannel();
     }
 
@@ -73,12 +69,10 @@ public class RabbitTemplate implements InitializingBean, ShutdownListener, Retur
                 channel.getConnection().addShutdownListener(this);
                 channel.setReturnListener(this);
                 channel.exchangeDeclare(exchange, exchangeType.toString());
-                if (log.isInfoEnabled()) {
-                    log.info(String.format("Connected to exchange [%s(%s)] - routingKey [%s]"
-                            , exchange, exchangeType, routingKey));
-                }
+
+                LOGGER.info("Connected to exchange [{}({})] - routingKey [{}]", new Object[]{exchange, exchangeType, routingKey});
             } catch (IOException e) {
-                log.warn("Unable to connect channel", e);
+                LOGGER.warn("Unable to connect channel", e);
             }
         }
     }
@@ -99,26 +93,22 @@ public class RabbitTemplate implements InitializingBean, ShutdownListener, Retur
 
     @Override
     public void shutdownCompleted(ShutdownSignalException cause) {
-        if (log.isInfoEnabled()) {
-            log.info(String.format("Channel connection lost for reason [%s]", cause.getReason()));
-            log.info(String.format("Reference [%s]", cause.getReference()));
-        }
+        LOGGER.info("Channel connection lost for reason [{}]", cause.getReason());
+        LOGGER.info("Reference [{}]", cause.getReference());
 
         if (cause.isInitiatedByApplication()) {
-            if (log.isInfoEnabled()) {
-                log.info("Sutdown initiated by application");
-            }
+            LOGGER.info("Shutdown initiated by application");
         } else if (cause.isHardError()) {
-            log.error("Shutdown is a hard error, trying to reconnect the channel...");
+            LOGGER.error("Shutdown is a hard error, trying to reconnect the channel...");
             connectChannel();
         }
     }
 
     @Override
-    public void handleBasicReturn(int replyCode, String replyText, String exchange, String routingKey
-            , AMQP.BasicProperties properties, byte[] body) throws IOException {
+    public void handleBasicReturn(int replyCode, String replyText, String exchange, String routingKey,
+                                  AMQP.BasicProperties properties, byte[] body) throws IOException {
 
-        log.warn(String.format("Got message back from server [%d] - [%s]", replyCode, replyText));
+        LOGGER.warn("Got message back from server [{}] - [{}]", replyCode, replyText);
         handleReturn(replyCode, replyText, exchange, routingKey, properties, body);
     }
 
@@ -128,8 +118,7 @@ public class RabbitTemplate implements InitializingBean, ShutdownListener, Retur
      * Will only be called when sending with 'immediate' or 'mandatory' set to true.
      */
     @SuppressWarnings({"UnusedDeclaration"})
-    public void handleReturn(int replyCode, String replyText, String exchange, String routingKey
-            , AMQP.BasicProperties properties, byte[] body) {
+    public void handleReturn(int replyCode, String replyText, String exchange, String routingKey, AMQP.BasicProperties properties, byte[] body) {
 
     }
 
