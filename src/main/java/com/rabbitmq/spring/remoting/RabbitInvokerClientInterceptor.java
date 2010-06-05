@@ -6,6 +6,7 @@ import com.rabbitmq.spring.UnRoutableException;
 import com.rabbitmq.spring.channel.RabbitChannelFactory;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,45 +66,38 @@ public class RabbitInvokerClientInterceptor implements MethodInterceptor, Initia
             tmpChannel.exchangeDeclare(exchange, exchangeType.toString());
             for (int i = 0; i < poolSize; i++) {
                 Channel channel = channelFactory.createChannel();
-                final RabbitRpcClient rpcClient = new RabbitRpcClient(channel, exchange, routingKey, timeoutMs, mandatory, immediate);
-                channel.setReturnListener(new ReturnListener() {
-                    @SuppressWarnings({"ThrowableInstanceNeverThrown"})
-                    @Override
-                    public void handleBasicReturn(int replyCode, String replyText, String exchange, String routingKey
-                            , AMQP.BasicProperties properties, byte[] body) throws IOException {
+                RabbitRpcClient rpcClient = new RabbitRpcClient(channel, exchange, routingKey, timeoutMs, mandatory, immediate);
+                channel.setReturnListener(new RabbitRpcReturnListener(rpcClient));
 
-                        // call handle result here, so uninterruptable cal will be interrupted
-                        Throwable resultException;
-                        switch (replyCode) {
-                            case AMQP.NO_CONSUMERS:
-                                resultException = new UnRoutableException(String.format(
-                                        "No consumers for message [%s] - [%s] - [%s]"
-                                        , SerializationUtils.deserialize(body), exchange, routingKey));
-                                break;
-                            case AMQP.NO_ROUTE:
-                                resultException = new UnRoutableException(String.format(
-                                        "Unroutable message [%s] - [%s] - [%s]"
-                                        , SerializationUtils.deserialize(body), exchange, routingKey));
-                                break;
-                            default:
-                                resultException = new UnRoutableException(String.format(
-                                        "Message returned [%s] - [%s] - [%s] - [%d] - [%s]"
-                                        , SerializationUtils.deserialize(body), exchange, routingKey, replyCode, replyText));
-
-                        }
-                        RemoteInvocationResult remoteInvocationResult = new RemoteInvocationResult(resultException);
-                        rpcClient.getConsumer().handleDelivery(null, null, properties
-                                , SerializationUtils.serialize(remoteInvocationResult));
-                    }
-                });
-                LOGGER.info("Started rpc client on exchange [{}({})] - routingKey [{}]",
-                        new Object[]{exchange, exchangeType, routingKey});
+                LOGGER.info("Started rpc client on exchange [{}({})] - routingKey [{}]", new Object[]{exchange, exchangeType, routingKey});
                 rpcClients.add(rpcClient);
 
             }
         } catch (IOException e) {
             LOGGER.warn("Unable to create rpc client", e);
         }
+    }
+
+    private Throwable resolveException(int replyCode, String replyText, String exchange, String routingKey, byte[] body) {
+        Throwable resultException;
+        switch (replyCode) {
+            case AMQP.NO_CONSUMERS:
+                resultException = new UnRoutableException(String.format(
+                        "No consumers for message [%s] - [%s] - [%s]", SerializationUtils.deserialize(body), exchange, routingKey)
+                );
+                break;
+            case AMQP.NO_ROUTE:
+                resultException = new UnRoutableException(String.format(
+                        "Unroutable message [%s] - [%s] - [%s]", SerializationUtils.deserialize(body), exchange, routingKey)
+                );
+                break;
+            default:
+                resultException = new UnRoutableException(String.format(
+                        "Message returned [%s] - [%s] - [%s] - [%d] - [%s]", SerializationUtils.deserialize(body), exchange, routingKey, replyCode, replyText)
+                );
+
+        }
+        return resultException;
     }
 
 
@@ -122,8 +116,8 @@ public class RabbitInvokerClientInterceptor implements MethodInterceptor, Initia
                 throw ex;
             } else {
                 throw new RemoteInvocationFailureException(String.format("Invocation of method [%s] failed in " +
-                        "Rabbit invoker remote service at exchange [%s] - routingKey [%s]"
-                        , methodInvocation.getMethod(), exchange, routingKey), ex);
+                        "Rabbit invoker remote service at exchange [%s] - routingKey [%s]", methodInvocation.getMethod(), exchange, routingKey), ex
+                );
             }
         }
     }
@@ -142,7 +136,7 @@ public class RabbitInvokerClientInterceptor implements MethodInterceptor, Initia
         RabbitRpcClient rpcClient = rpcClients.poll(timeoutMs, TimeUnit.MILLISECONDS);
         if (rpcClient != null) {
 
-            byte[] response;
+            byte[] response = ArrayUtils.EMPTY_BYTE_ARRAY;
             try {
                 response = rpcClient.primitiveCall(message);
             } finally {
@@ -221,5 +215,24 @@ public class RabbitInvokerClientInterceptor implements MethodInterceptor, Initia
     @Override
     public void destroy() throws Exception {
         clearRpcClients();
+    }
+
+    private class RabbitRpcReturnListener implements ReturnListener {
+        private final RabbitRpcClient rpcClient;
+
+        RabbitRpcReturnListener(RabbitRpcClient rpcClient) {
+            this.rpcClient = rpcClient;
+        }
+
+        @Override
+        public void handleBasicReturn(int replyCode, String replyText, String exchange, String routingKey
+                , AMQP.BasicProperties properties, byte[] body) throws IOException {
+
+            // call handle result here, so uninterruptable cal will be interrupted
+            Throwable resultException = resolveException(replyCode, replyText, exchange, routingKey, body);
+
+            RemoteInvocationResult remoteInvocationResult = new RemoteInvocationResult(resultException);
+            rpcClient.getConsumer().handleDelivery(null, null, properties, SerializationUtils.serialize(remoteInvocationResult));
+        }
     }
 }

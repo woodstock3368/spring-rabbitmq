@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.util.MethodInvoker;
-import org.springframework.util.ObjectUtils;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -32,15 +31,13 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
     private String queueName;
     private String routingKey = DEFAULT_ROUTING_KEY;
     private String listenerMethod = DEFAULT_LISTENER_METHOD;
-    private int poolsize = DEFAULT_POOL_SIZE;
+    private int poolSize = DEFAULT_POOL_SIZE;
 
     private Channel channel;
 
     @Override
     public void afterPropertiesSet() throws Exception {
-
         exchangeType.validateRoutingKey(routingKey);
-
         startConsumer();
     }
 
@@ -58,7 +55,7 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
                 channel.exchangeDeclare(exchange, exchangeType.toString());
                 channel.queueBind(internalQueueName, exchange, routingKey);
 
-                for (int index = 1; index <= poolsize; index++) {
+                for (int index = 1; index <= poolSize; index++) {
                     channel.basicConsume(internalQueueName, this);
                     LOGGER.info("Started consumer {} on exchange [{}({})] - queue [{}] - routingKey [{}]",
                             new Object[]{index, exchange, exchangeType, queueName, routingKey});
@@ -153,7 +150,7 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
         }
         catch (Throwable ex) {
             throw new ListenerExecutionFailedException(
-                    String.format("Failed to invoke target method '%s' with arguments %s", methodName, ObjectUtils.nullSafeToString(arguments)), ex
+                    String.format("Failed to invoke target method '%s' with arguments %s", methodName, arguments), ex
             );
         }
     }
@@ -175,12 +172,12 @@ public class RabbitMessageListenerAdapter implements Consumer, InitializingBean 
         this.listenerMethod = listenerMethod;
     }
 
-    public void setPoolsize(int poolsize) {
-        this.poolsize = poolsize;
+    public void setPoolSize(int poolSize) {
+        this.poolSize = poolSize;
     }
 
     private static class ListenerExecutionFailedException extends RuntimeException {
-        public ListenerExecutionFailedException(String s, Throwable targetEx) {
+        ListenerExecutionFailedException(String s, Throwable targetEx) {
             super(s, targetEx);
         }
     }

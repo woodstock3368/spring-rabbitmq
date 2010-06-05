@@ -5,10 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Required;
-import org.springframework.util.ObjectUtils;
 
 import java.io.IOException;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class RabbitConnectionFactory implements DisposableBean {
@@ -29,31 +27,26 @@ public class RabbitConnectionFactory implements DisposableBean {
             collectInitialKnownHosts();
         }
 
-        while (connection == null || !connection.isOpen()) {
+        while (isConnectionOpened()) {
             ConnectionParameters connectionParameters = connectionFactory.getParameters();
 
             LOGGER.info("Establishing connection to one of [{}] using virtualhost [{}]",
-                    ObjectUtils.nullSafeToString(hosts), connectionParameters.getVirtualHost());
+                    hosts, connectionParameters.getVirtualHost());
 
             try {
                 connection = connectionFactory.newConnection(knownHosts);
-
-                // always keep the original hosts
-                Set<Address> hosts = new HashSet<Address>(Arrays.asList(knownHosts));
-                hosts.addAll(Arrays.asList(connection.getKnownHosts()));
-                knownHosts = hosts.toArray(new Address[hosts.size()]);
-
-                LOGGER.debug("New known hosts list is [{}]", ObjectUtils.nullSafeToString(knownHosts));
+                LOGGER.debug("New known hosts list is [{}]", connection.getKnownHosts());
 
                 addShutdownListeners();
 
                 LOGGER.info("Connected to [{}:{}]", connection.getHost(), connection.getPort());
-            } catch (Exception e) {
+            } catch (IOException e) {
                 LOGGER.error("Error connecting, trying again in 5 seconds...", e);
                 try {
                     TimeUnit.SECONDS.sleep(5);
                 } catch (InterruptedException e1) {
-                    LOGGER.warn("Interrupted while waiting");
+                    LOGGER.warn("Interrupted while waiting for reconnecnting");
+                    break;
                 }
             }
 
@@ -63,12 +56,16 @@ public class RabbitConnectionFactory implements DisposableBean {
 
     }
 
+    private boolean isConnectionOpened() {
+        return connection == null || !connection.isOpen();
+    }
+
     private void collectInitialKnownHosts() {
-        List<Address> addresses = new ArrayList<Address>(hosts.length);
-        for (String host : hosts) {
-            addresses.add(Address.parseAddress(host));
+        knownHosts = new Address[hosts.length];
+        for (int index = 0; index < hosts.length; index++) {
+            knownHosts[index] = Address.parseAddress(hosts[index]);
+
         }
-        knownHosts = addresses.toArray(new Address[hosts.length]);
     }
 
     private void addShutdownListeners() {

@@ -14,10 +14,10 @@ import java.util.Set;
 
 public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitChannelFactory.class);
+
     public static final int DEFAULT_CLOSE_CODE = AMQP.REPLY_SUCCESS;
     public static final String DEFAULT_CLOSE_MESSAGE = "Goodbye";
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(RabbitChannelFactory.class);
 
     private RabbitConnectionFactory connectionFactory;
     private int closeCode = DEFAULT_CLOSE_CODE;
@@ -67,8 +67,6 @@ public class RabbitChannelFactory implements DisposableBean, ShutdownListener {
                         channel.close(closeCode, closeMessage);
                     }
                 }
-            } catch (NullPointerException e) {
-                LOGGER.error("Error closing channel", e);
             } catch (IOException e) {
                 LOGGER.error("Error closing channel", e);
             }

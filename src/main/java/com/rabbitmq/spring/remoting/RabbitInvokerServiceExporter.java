@@ -4,6 +4,7 @@ import com.rabbitmq.client.*;
 import com.rabbitmq.spring.ExchangeType;
 import com.rabbitmq.spring.InvalidRoutingKeyException;
 import com.rabbitmq.spring.channel.RabbitChannelFactory;
+import com.rabbitmq.spring.utils.Utils;
 import org.apache.commons.lang.SerializationUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,10 +18,20 @@ import org.springframework.remoting.support.RemoteInvocationResult;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter implements InitializingBean, DisposableBean, ShutdownListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RabbitInvokerServiceExporter.class);
+
+    private static final int MAXIMUM_POOL_SIZE = 50;
+    private static final int CORE_POOL_SIZE = 10;
+
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE,
+            60L, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<Runnable>());
 
     private RabbitChannelFactory channelFactory;
     private String exchange;
@@ -30,20 +41,16 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
 
     private Object proxy;
     private List<RpcServer> rpcServerPool;
-    private int poolsize = 1;
+    private int poolSize = 1;
 
     public void afterPropertiesSet() {
-
         if (exchangeType.equals(ExchangeType.FANOUT)) {
-            throw new InvalidRoutingKeyException(
-                    String.format("Exchange type %s not allowed for service exporter", exchangeType));
+            throw new InvalidRoutingKeyException(String.format("Exchange type %s not allowed for service exporter", exchangeType));
         }
 
         exchangeType.validateRoutingKey(routingKey);
-
         proxy = getProxyForService();
-
-        rpcServerPool = new ArrayList<RpcServer>(poolsize);
+        rpcServerPool = new ArrayList<RpcServer>(poolSize);
 
         startRpcServer();
     }
@@ -51,6 +58,7 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
     private void startRpcServer() {
         try {
             LOGGER.info("Creating channel and rpc server");
+
             Channel tmpChannel = channelFactory.createChannel();
             tmpChannel.getConnection().addShutdownListener(this);
             tmpChannel.queueDeclare(queueName, false, false, false, true, null);
@@ -59,27 +67,18 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
                 tmpChannel.queueBind(queueName, exchange, routingKey);
             }
 
-
-            for (int i = 1; i <= poolsize; i++) {
+            for (int i = 1; i <= poolSize; i++) {
                 try {
                     Channel channel = channelFactory.createChannel();
 
                     LOGGER.info("Starting rpc server {} on exchange [{}({})] - queue [{}] - routingKey [{}]",
-                            new Object[]{i, exchange, exchangeType, queueName, routingKey});
-                    final RpcServer rpcServer = createRpcServer(channel);
+                            new Object[]{i, exchange, exchangeType, queueName, routingKey}
+                    );
+
+                    RpcServer rpcServer = createRpcServer(channel);
                     rpcServerPool.add(rpcServer);
 
-                    Runnable main = new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                throw rpcServer.mainloop();
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                    };
-                    new Thread(main).start();
+                    executor.submit(new RPCServerRunnable(rpcServer));
                 } catch (IOException e) {
                     LOGGER.warn("Unable to create rpc server", e);
                 }
@@ -91,7 +90,6 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
 
     private RpcServer createRpcServer(Channel channel) throws IOException {
         return new RpcServer(channel, queueName) {
-
             @Override
             public byte[] handleCall(byte[] requestBody, AMQP.BasicProperties replyProperties) {
 
@@ -119,6 +117,7 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
     @Override
     public void destroy() throws Exception {
         clearRpcServers();
+        Utils.shutdownTreadPool(executor, 2L, TimeUnit.MINUTES);
     }
 
     private void clearRpcServers() {
@@ -159,12 +158,30 @@ public class RabbitInvokerServiceExporter extends RemoteInvocationBasedExporter 
         this.routingKey = routingKey;
     }
 
-    public void setPoolsize(int poolsize) {
-        this.poolsize = poolsize;
+    public void setPoolSize(int poolSize) {
+        this.poolSize = poolSize;
     }
 
     @Required
     public void setExchangeType(ExchangeType exchangeType) {
         this.exchangeType = exchangeType;
+    }
+
+    private static class RPCServerRunnable implements Runnable {
+
+        private final RpcServer rpcServer;
+
+        RPCServerRunnable(RpcServer rpcServer) {
+            this.rpcServer = rpcServer;
+        }
+
+        @Override
+        public void run() {
+            try {
+                throw rpcServer.mainloop();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }

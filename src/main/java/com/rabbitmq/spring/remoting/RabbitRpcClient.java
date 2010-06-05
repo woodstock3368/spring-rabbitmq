@@ -27,13 +27,12 @@ class RabbitRpcClient {
     private final boolean immediate;
     private final int timeOutMs;
 
-    public RabbitRpcClient(Channel channel, String exchange, String routingKey, int timeOutMs) throws IOException {
+    RabbitRpcClient(Channel channel, String exchange, String routingKey, int timeOutMs) throws IOException {
         this(channel, exchange, routingKey, timeOutMs, false, false);
     }
 
-    @SuppressWarnings({"ConstructorWithTooManyParameters"})
-    public RabbitRpcClient(Channel channel, String exchange, String routingKey, int timeOutMs, boolean mandatory,
-                           boolean immediate) throws IOException {
+    RabbitRpcClient(Channel channel, String exchange, String routingKey, int timeOutMs, boolean mandatory,
+                    boolean immediate) throws IOException {
         this.channel = channel;
         this.exchange = exchange;
         this.routingKey = routingKey;
@@ -64,34 +63,7 @@ class RabbitRpcClient {
     }
 
     private DefaultConsumer setupConsumer() throws IOException {
-        DefaultConsumer consumer = new DefaultConsumer(channel) {
-
-            @Override
-            public void handleShutdownSignal(String consumerTag,
-                                             ShutdownSignalException signal) {
-
-                synchronized (continuationMap) {
-                    for (Map.Entry<String, BlockingCell<Object>> entry : continuationMap.entrySet()) {
-                        entry.getValue().set(signal);
-                    }
-                    RabbitRpcClient.this.consumer = null;
-                }
-            }
-
-            @Override
-            public void handleDelivery(String consumerTag,
-                                       Envelope envelope,
-                                       AMQP.BasicProperties properties,
-                                       byte[] body)
-                    throws IOException {
-                synchronized (continuationMap) {
-                    String replyId = properties.getCorrelationId();
-                    BlockingCell<Object> blocker = continuationMap.get(replyId);
-                    continuationMap.remove(replyId);
-                    blocker.set(body);
-                }
-            }
-        };
+        DefaultConsumer consumer = new RPCClientDefaultConsumer();
         channel.basicConsume(replyQueue, true, consumer);
         return consumer;
     }
@@ -107,7 +79,7 @@ class RabbitRpcClient {
         BlockingCell<Object> k = new BlockingCell<Object>();
         synchronized (continuationMap) {
             correlationId++;
-            String replyId = "" + correlationId;
+            String replyId = String.valueOf(correlationId);
             if (localProps != null) {
                 localProps.setCorrelationId(replyId);
                 localProps.setReplyTo(replyQueue);
@@ -155,8 +127,7 @@ class RabbitRpcClient {
         return reader.readTable();
     }
 
-    public Map<String, Object> mapCall(Object[] keyValuePairs)
-            throws IOException, ShutdownSignalException, TimeoutException {
+    public Map<String, Object> mapCall(Object[] keyValuePairs) throws IOException, ShutdownSignalException, TimeoutException {
         Map<String, Object> message = new HashMap<String, Object>();
         for (int i = 0; i < keyValuePairs.length; i += 2) {
             message.put((String) keyValuePairs[i], keyValuePairs[i + 1]);
@@ -190,5 +161,31 @@ class RabbitRpcClient {
 
     public Consumer getConsumer() {
         return consumer;
+    }
+
+    private class RPCClientDefaultConsumer extends DefaultConsumer {
+        RPCClientDefaultConsumer() {
+            super(channel);
+        }
+
+        @Override
+        public void handleShutdownSignal(String consumerTag, ShutdownSignalException signal) {
+            synchronized (continuationMap) {
+                for (Map.Entry<String, BlockingCell<Object>> entry : continuationMap.entrySet()) {
+                    entry.getValue().set(signal);
+                }
+                consumer = null;
+            }
+        }
+
+        @Override
+        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+            synchronized (continuationMap) {
+                String replyId = properties.getCorrelationId();
+                BlockingCell<Object> blocker = continuationMap.get(replyId);
+                continuationMap.remove(replyId);
+                blocker.set(body);
+            }
+        }
     }
 }

@@ -49,7 +49,7 @@
         <property name="exchangeType" value="TOPIC"/>
         <property name="routingKey" value="routing.#"/>
         <property name="queueName" value="explicit_queue_name"/>
-        <property name="poolsize" value="5"/>
+        <property name="poolSize" value="5"/>
     </bean>
 
 
@@ -66,7 +66,7 @@
         <property name="exchangeType" value="TOPIC"/>
         <property name="routingKey" value="routing.example.service"/>
         <property name="queueName" value="incoming_queue_name"/>
-        <property name="poolsize" value="5"/>
+        <property name="poolSize" value="5"/>
     </bean>
 
     <!--remote call the service-->

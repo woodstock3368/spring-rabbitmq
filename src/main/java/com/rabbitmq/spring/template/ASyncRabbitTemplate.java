@@ -1,63 +1,49 @@
 package com.rabbitmq.spring.template;
 
+import com.rabbitmq.spring.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 
 import java.io.Serializable;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class ASyncRabbitTemplate extends RabbitTemplate implements DisposableBean {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ASyncRabbitTemplate.class);
 
-    private final BlockingQueue<RabbitMessage> queue = new LinkedBlockingQueue<RabbitMessage>();
+    private static final int MAXIMUM_POOL_SIZE = 50;
+    private static final int CORE_POOL_SIZE = 10;
 
-    private volatile boolean running = true;
+    private final ThreadPoolExecutor messageSender = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE,
+            60L, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<Runnable>());
 
     @Override
     public void afterPropertiesSet() throws Exception {
         super.afterPropertiesSet();
-        new Thread(new Worker()).start();
     }
 
     @Override
-    public void destroy() throws Exception {
-        running = false;
-        queue.clear();
+    public void destroy() {
+        LOGGER.debug("Shutting down message sender thread pool...");
+        Utils.shutdownTreadPool(messageSender, 2L, TimeUnit.MINUTES);
     }
 
     @Override
     public void send(Serializable object, String routingKey, boolean mandatory, boolean direct) {
-        queue.add(new RabbitMessage(object, routingKey, mandatory, direct));
+        //TODO: what to do if  messageSender stopped but we have send method call?
+        messageSender.submit(new SenderTask(new RabbitMessage(object, routingKey, mandatory, direct)));
     }
 
     private void sendMessage(RabbitMessage message) {
         super.send(message.getObject(), message.routingKey, message.isMandatory(), message.isDirect());
     }
 
-    private final class Worker implements Runnable {
-
-        @Override
-        public void run() {
-            while (running) {
-                try {
-                    RabbitMessage message = queue.poll(1, TimeUnit.SECONDS);
-                    if (message != null) {
-                        sendMessage(message);
-                    }
-                } catch (InterruptedException ie) {
-                    LOGGER.debug("Interrupted while waiting for RabbitMessage in queue");
-                } catch (Exception e) {
-                    LOGGER.error("Error sending message", e);
-                }
-            }
-        }
-    }
-
     private final class RabbitMessage {
+
         private final Serializable object;
         private final String routingKey;
         private final boolean mandatory;
@@ -84,6 +70,20 @@ public class ASyncRabbitTemplate extends RabbitTemplate implements DisposableBea
 
         public boolean isDirect() {
             return direct;
+        }
+    }
+
+    private class SenderTask implements Runnable {
+
+        private final RabbitMessage rabbitMessage;
+
+        SenderTask(RabbitMessage rabbitMessage) {
+            this.rabbitMessage = rabbitMessage;
+        }
+
+        @Override
+        public void run() {
+            sendMessage(rabbitMessage);
         }
     }
 }
