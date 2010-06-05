@@ -1,0 +1,9 @@
+*~
+*.class
+target/
+# IDEA patterns
+.idea/
+*.iml
+*.ipr
+*.iws
+
